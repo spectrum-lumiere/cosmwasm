@@ -56,7 +56,7 @@ mod tests {
         }
         .into();
         let wrapper = QuerierWrapper::new(&deps.querier);
-        let response: SpecialResponse = wrapper.custom_query(&req).unwrap();
+        let response: SpecialResponse = wrapper.query(&req).unwrap();
         assert_eq!(response.msg, "FOOD");
     }
 }

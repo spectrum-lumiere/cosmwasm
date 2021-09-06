@@ -159,20 +159,12 @@ impl<'a, C: CustomQuery> QuerierWrapper<'a, C> {
         }
     }
 
-    /// query is a shorthand for custom_query when we are not using a custom type,
-    /// this allows us to avoid specifying "Empty" in all the type definitions.
-    pub fn query<T: DeserializeOwned>(&self, request: &QueryRequest<C>) -> StdResult<T> {
-        self.custom_query(request)
-    }
-
-    /// Makes the query and parses the response. Also handles custom queries,
-    /// so you need to specify the custom query type in the function parameters.
-    /// If you are no using a custom query, just use `query` for easier interface.
+    /// Makes the query and parses the response.
     ///
     /// Any error (System Error, Error or called contract, or Parse Error) are flattened into
     /// one level. Only use this if you don't need to check the SystemError
     /// eg. If you don't differentiate between contract missing and contract returned error
-    pub fn custom_query<U: DeserializeOwned>(&self, request: &QueryRequest<C>) -> StdResult<U> {
+    pub fn query<U: DeserializeOwned>(&self, request: &QueryRequest<C>) -> StdResult<U> {
         let raw = to_vec(request).map_err(|serialize_err| {
             StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
         })?;
