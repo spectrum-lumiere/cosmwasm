@@ -137,7 +137,8 @@ fn query_subcall(deps: Deps, id: u64) -> StdResult<Reply> {
 
 fn query_capitalized(deps: Deps, text: String) -> StdResult<CapitalizedResponse> {
     let req = SpecialQuery::Capitalized { text }.into();
-    let response: SpecialResponse = deps.querier().custom_query(&req)?;
+    let querier = deps.custom_querier::<SpecialQuery>();
+    let response: SpecialResponse = querier.custom_query(&req)?;
     Ok(CapitalizedResponse { text: response.msg })
 }
 

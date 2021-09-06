@@ -1,3 +1,5 @@
+use crate::query::CustomQuery;
+use crate::results::Empty;
 use crate::traits::{Api, Querier, Storage};
 use crate::QuerierWrapper;
 
@@ -14,7 +16,8 @@ pub struct OwnedDeps<S: Storage, A: Api, Q: Querier> {
 pub struct DepsMut<'a> {
     pub storage: &'a mut dyn Storage,
     pub api: &'a dyn Api,
-    /// Do not use this raw querier directly. Use [`DepsMut::querier()`] instead.
+    /// Do not use this raw querier directly.
+    /// Use [`DepsMut::querier()`] or [`DepsMut::custom_querier()`] instead.
     querier: &'a dyn Querier,
 }
 
@@ -22,7 +25,8 @@ pub struct DepsMut<'a> {
 pub struct Deps<'a> {
     pub storage: &'a dyn Storage,
     pub api: &'a dyn Api,
-    /// Do not use this raw querier directly. Use [`Deps::querier()`] instead.
+    /// Do not use this raw querier directly.
+    /// Use [`Deps::querier()`] or [`Deps::custom_querier()`] instead.
     querier: &'a dyn Querier,
 }
 
@@ -61,16 +65,34 @@ impl<'a> DepsMut<'a> {
         }
     }
 
-    /// Creates a `QuerierWrapper` that allows you to use the querier
-    pub fn querier(&'_ self) -> QuerierWrapper<'_> {
-        QuerierWrapper::new(self.querier)
+    /// Creates a `QuerierWrapper` that allows you to use the querier.
+    /// This version does not support custom query types.
+    /// See also [`custom_querier()`] for a more advanced version.
+    pub fn querier(&'_ self) -> QuerierWrapper<'_, Empty> {
+        self.custom_querier::<Empty>()
+    }
+
+    /// Creates a `QuerierWrapper` that allows you to use the querier.
+    /// This version supports custom query types.
+    /// See also [`querier()`] for a simpler version.
+    pub fn custom_querier<C: CustomQuery>(&'_ self) -> QuerierWrapper<'_, C> {
+        QuerierWrapper::<C>::new(self.querier)
     }
 }
 
 impl<'a> Deps<'a> {
-    /// Creates a `QuerierWrapper` that allows you to use the querier
-    pub fn querier(&'_ self) -> QuerierWrapper<'_> {
-        QuerierWrapper::new(self.querier)
+    /// Creates a `QuerierWrapper` that allows you to use the querier.
+    /// This version does not support custom query types.
+    /// See also [`custom_querier()`] for a more advanced version.
+    pub fn querier(&'_ self) -> QuerierWrapper<'_, Empty> {
+        self.custom_querier::<Empty>()
+    }
+
+    /// Creates a `QuerierWrapper` that allows you to use the querier.
+    /// This version supports custom query types.
+    /// See also [`querier()`] for a simpler version.
+    pub fn custom_querier<C: CustomQuery>(&'_ self) -> QuerierWrapper<'_, C> {
+        QuerierWrapper::<C>::new(self.querier)
     }
 }
 
