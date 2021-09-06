@@ -189,7 +189,7 @@ pub fn ibc_channel_close(
     accounts(deps.storage).remove(channel_id.as_bytes());
 
     // transfer current balance if any (steal the money)
-    let amount = deps.querier.query_all_balances(&reflect_addr)?;
+    let amount = deps.querier().query_all_balances(&reflect_addr)?;
     let messages: Vec<SubMsg<Empty>> = if !amount.is_empty() {
         let bank_msg = BankMsg::Send {
             to_address: env.contract.address.into(),
@@ -271,7 +271,7 @@ fn receive_who_am_i(deps: DepsMut, caller: String) -> StdResult<IbcReceiveRespon
 // processes PacketMsg::Balances variant
 fn receive_balances(deps: DepsMut, caller: String) -> StdResult<IbcReceiveResponse> {
     let account = accounts(deps.storage).load(caller.as_bytes())?;
-    let balances = deps.querier.query_all_balances(&account)?;
+    let balances = deps.querier().query_all_balances(&account)?;
     let response = BalancesResponse {
         account: account.into(),
         balances,
@@ -592,7 +592,7 @@ mod tests {
         let raw = query(deps.as_ref(), mock_env(), QueryMsg::ListAccounts {}).unwrap();
         let res: ListAccountsResponse = from_slice(&raw).unwrap();
         assert_eq!(1, res.accounts.len());
-        let balance = deps.as_ref().querier.query_all_balances(account).unwrap();
+        let balance = deps.as_ref().querier().query_all_balances(account).unwrap();
         assert_eq!(funds, balance);
 
         // close the channel

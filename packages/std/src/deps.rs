@@ -14,14 +14,16 @@ pub struct OwnedDeps<S: Storage, A: Api, Q: Querier> {
 pub struct DepsMut<'a> {
     pub storage: &'a mut dyn Storage,
     pub api: &'a dyn Api,
-    pub querier: QuerierWrapper<'a>,
+    /// Do not use this raw querier directly. Use [`DepsMut::querier()`] instead.
+    querier: &'a dyn Querier,
 }
 
 #[derive(Copy, Clone)]
 pub struct Deps<'a> {
     pub storage: &'a dyn Storage,
     pub api: &'a dyn Api,
-    pub querier: QuerierWrapper<'a>,
+    /// Do not use this raw querier directly. Use [`Deps::querier()`] instead.
+    querier: &'a dyn Querier,
 }
 
 impl<S: Storage, A: Api, Q: Querier> OwnedDeps<S, A, Q> {
@@ -29,7 +31,7 @@ impl<S: Storage, A: Api, Q: Querier> OwnedDeps<S, A, Q> {
         Deps {
             storage: &self.storage,
             api: &self.api,
-            querier: QuerierWrapper::new(&self.querier),
+            querier: &self.querier,
         }
     }
 
@@ -37,7 +39,7 @@ impl<S: Storage, A: Api, Q: Querier> OwnedDeps<S, A, Q> {
         DepsMut {
             storage: &mut self.storage,
             api: &self.api,
-            querier: QuerierWrapper::new(&self.querier),
+            querier: &self.querier,
         }
     }
 }
@@ -57,6 +59,18 @@ impl<'a> DepsMut<'a> {
             api: self.api,
             querier: self.querier,
         }
+    }
+
+    /// Creates a `QuerierWrapper` that allows you to use the querier
+    pub fn querier(&'_ self) -> QuerierWrapper<'_> {
+        QuerierWrapper::new(self.querier)
+    }
+}
+
+impl<'a> Deps<'a> {
+    /// Creates a `QuerierWrapper` that allows you to use the querier
+    pub fn querier(&'_ self) -> QuerierWrapper<'_> {
+        QuerierWrapper::new(self.querier)
     }
 }
 

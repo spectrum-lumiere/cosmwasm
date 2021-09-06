@@ -24,7 +24,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     // ensure the validator is registered
-    let validator = deps.querier.query_validator(msg.validator.clone())?;
+    let validator = deps.querier().query_validator(msg.validator.clone())?;
     if validator.is_none() {
         return Err(StdError::generic_err(format!(
             "{} is not in the current validator set",
@@ -39,7 +39,7 @@ pub fn instantiate(
     };
     token_info(deps.storage).save(&token)?;
 
-    let denom = deps.querier.query_bonded_denom()?;
+    let denom = deps.querier().query_bonded_denom()?;
     let invest = InvestmentInfo {
         owner: info.sender,
         exit_tax: msg.exit_tax,
@@ -146,7 +146,7 @@ pub fn bond(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
         .ok_or_else(|| StdError::generic_err(format!("No {} tokens sent", &invest.bond_denom)))?;
 
     // bonded is the total number of tokens we have delegated from this address
-    let bonded = get_bonded(&deps.querier, env.contract.address)?;
+    let bonded = get_bonded(&deps.querier(), env.contract.address)?;
 
     // calculate to_mint and update total supply
     let mut totals = total_supply(deps.storage);
@@ -210,7 +210,7 @@ pub fn unbond(deps: DepsMut, env: Env, info: MessageInfo, amount: Uint128) -> St
 
     // re-calculate bonded to ensure we have real values
     // bonded is the total number of tokens we have delegated from this address
-    let bonded = get_bonded(&deps.querier, env.contract.address)?;
+    let bonded = get_bonded(&deps.querier(), env.contract.address)?;
 
     // calculate how many native tokens this is worth and update supply
     let remainder = amount.checked_sub(tax)?;
@@ -246,7 +246,7 @@ pub fn claim(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> 
     // find how many tokens the contract has
     let invest = invest_info_read(deps.storage).load()?;
     let mut balance = deps
-        .querier
+        .querier()
         .query_balance(env.contract.address, invest.bond_denom)?;
     if balance.amount < invest.min_withdrawal {
         return Err(StdError::generic_err(
@@ -316,7 +316,7 @@ pub fn _bond_all_tokens(
     // find how many tokens we have to bond
     let invest = invest_info_read(deps.storage).load()?;
     let mut balance = deps
-        .querier
+        .querier()
         .query_balance(env.contract.address, &invest.bond_denom)?;
 
     // we deduct pending claims from our account balance before reinvesting.

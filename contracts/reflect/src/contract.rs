@@ -137,7 +137,7 @@ fn query_subcall(deps: Deps, id: u64) -> StdResult<Reply> {
 
 fn query_capitalized(deps: Deps, text: String) -> StdResult<CapitalizedResponse> {
     let req = SpecialQuery::Capitalized { text }.into();
-    let response: SpecialResponse = deps.querier.custom_query(&req)?;
+    let response: SpecialResponse = deps.querier().custom_query(&req)?;
     Ok(CapitalizedResponse { text: response.msg })
 }
 
@@ -145,7 +145,7 @@ fn query_chain(deps: Deps, request: &QueryRequest<SpecialQuery>) -> StdResult<Ch
     let raw = to_vec(request).map_err(|serialize_err| {
         StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
     })?;
-    match deps.querier.raw_query(&raw) {
+    match deps.querier().raw_query(&raw) {
         SystemResult::Err(system_err) => Err(StdError::generic_err(format!(
             "Querier system error: {}",
             system_err
@@ -159,7 +159,7 @@ fn query_chain(deps: Deps, request: &QueryRequest<SpecialQuery>) -> StdResult<Ch
 }
 
 fn query_raw(deps: Deps, contract: String, key: Binary) -> StdResult<RawResponse> {
-    let response: Option<Vec<u8>> = deps.querier.query_wasm_raw(contract, key)?;
+    let response: Option<Vec<u8>> = deps.querier().query_wasm_raw(contract, key)?;
     Ok(RawResponse {
         data: response.unwrap_or_default().into(),
     })
