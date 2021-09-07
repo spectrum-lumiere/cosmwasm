@@ -6,6 +6,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Removed
+
+- cosmwasm-std: Remove `HumanAddr` (deprecated since 0.14). Use `String`
+  instead.
+
 ## [0.16.2] - 2021-09-07
 
 ### Added
