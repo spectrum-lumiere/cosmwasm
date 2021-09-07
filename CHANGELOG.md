@@ -6,6 +6,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- cosmwasm-vm: Increase `MAX_LENGTH_HUMAN_ADDRESS` from 90 to 256 in order to
+  support longer address formats than bech32.
+
 ## [0.16.2] - 2021-09-07
 
 ### Added
