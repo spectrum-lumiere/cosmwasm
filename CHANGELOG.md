@@ -6,6 +6,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- cosmwasm-std: New field `Env::transaction` containing info of the transaction.
+
 ## [0.16.2] - 2021-09-07
 
 ### Added
