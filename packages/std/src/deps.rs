@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::query::CustomQuery;
 use crate::results::Empty;
 use crate::traits::{Api, Querier, Storage};
@@ -7,92 +9,59 @@ use crate::QuerierWrapper;
 /// Designed to allow easy dependency injection at runtime.
 /// This cannot be copied or cloned since it would behave differently
 /// for mock storages and a bridge storage in the VM.
-pub struct OwnedDeps<S: Storage, A: Api, Q: Querier> {
+pub struct OwnedDeps<S: Storage, A: Api, Q: Querier, C: CustomQuery = Empty> {
     pub storage: S,
     pub api: A,
     pub querier: Q,
+    pub custom_query_type: PhantomData<C>,
 }
 
-pub struct DepsMut<'a> {
+pub struct DepsMut<'a, C: CustomQuery = Empty> {
     pub storage: &'a mut dyn Storage,
     pub api: &'a dyn Api,
-    /// Do not use this raw querier directly.
-    /// Use [`DepsMut::querier()`] or [`DepsMut::custom_querier()`] instead.
-    querier: &'a dyn Querier,
+    pub querier: QuerierWrapper<'a, C>,
 }
 
-#[derive(Copy, Clone)]
-pub struct Deps<'a> {
+#[derive(Clone)]
+pub struct Deps<'a, C: CustomQuery = Empty> {
     pub storage: &'a dyn Storage,
     pub api: &'a dyn Api,
-    /// Do not use this raw querier directly.
-    /// Use [`Deps::querier()`] or [`Deps::custom_querier()`] instead.
-    querier: &'a dyn Querier,
+    pub querier: QuerierWrapper<'a, C>,
 }
 
-impl<S: Storage, A: Api, Q: Querier> OwnedDeps<S, A, Q> {
-    pub fn as_ref(&'_ self) -> Deps<'_> {
+impl<S: Storage, A: Api, Q: Querier, C: CustomQuery> OwnedDeps<S, A, Q, C> {
+    pub fn as_ref(&'_ self) -> Deps<'_, C> {
         Deps {
             storage: &self.storage,
             api: &self.api,
-            querier: &self.querier,
+            querier: QuerierWrapper::new(&self.querier),
         }
     }
 
-    pub fn as_mut(&'_ mut self) -> DepsMut<'_> {
+    pub fn as_mut(&'_ mut self) -> DepsMut<'_, C> {
         DepsMut {
             storage: &mut self.storage,
             api: &self.api,
-            querier: &self.querier,
+            querier: QuerierWrapper::new(&self.querier),
         }
     }
 }
 
-impl<'a> DepsMut<'a> {
-    pub fn as_ref(&'_ self) -> Deps<'_> {
+impl<'a, C: CustomQuery> DepsMut<'a, C> {
+    pub fn as_ref(&'_ self) -> Deps<'_, C> {
         Deps {
             storage: self.storage,
             api: self.api,
-            querier: self.querier,
+            querier: self.querier.clone(),
         }
     }
 
-    pub fn branch(&'_ mut self) -> DepsMut<'_> {
+    pub fn branch(&'_ mut self) -> DepsMut<'_, C> {
         DepsMut {
             storage: self.storage,
             api: self.api,
-            querier: self.querier,
+            querier: self.querier.clone(),
         }
-    }
-
-    /// Creates a `QuerierWrapper` that allows you to use the querier.
-    /// This version does not support custom query types.
-    /// See also [`custom_querier()`] for a more advanced version.
-    pub fn querier(&'_ self) -> QuerierWrapper<'_, Empty> {
-        self.custom_querier::<Empty>()
-    }
-
-    /// Creates a `QuerierWrapper` that allows you to use the querier.
-    /// This version supports custom query types.
-    /// See also [`querier()`] for a simpler version.
-    pub fn custom_querier<C: CustomQuery>(&'_ self) -> QuerierWrapper<'_, C> {
-        QuerierWrapper::<C>::new(self.querier)
-    }
-}
-
-impl<'a> Deps<'a> {
-    /// Creates a `QuerierWrapper` that allows you to use the querier.
-    /// This version does not support custom query types.
-    /// See also [`custom_querier()`] for a more advanced version.
-    pub fn querier(&'_ self) -> QuerierWrapper<'_, Empty> {
-        self.custom_querier::<Empty>()
-    }
-
-    /// Creates a `QuerierWrapper` that allows you to use the querier.
-    /// This version supports custom query types.
-    /// See also [`querier()`] for a simpler version.
-    pub fn custom_querier<C: CustomQuery>(&'_ self) -> QuerierWrapper<'_, C> {
-        QuerierWrapper::<C>::new(self.querier)
     }
 }
 
@@ -110,7 +79,7 @@ mod tests {
     fn execute2(_deps: DepsMut) {}
 
     fn query(deps: Deps) {
-        query2(deps);
+        query2(deps.clone());
         query2(deps);
     }
     fn query2(_deps: Deps) {}

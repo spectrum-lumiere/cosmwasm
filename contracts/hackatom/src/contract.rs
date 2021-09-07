@@ -84,7 +84,7 @@ fn do_release(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, Ha
 
     if info.sender == state.verifier {
         let to_addr = state.beneficiary;
-        let balance = deps.querier().query_all_balances(env.contract.address)?;
+        let balance = deps.querier.query_all_balances(env.contract.address)?;
 
         let resp = Response::new()
             .add_attribute("action", "release")
@@ -243,7 +243,7 @@ fn query_verifier(deps: Deps) -> StdResult<VerifierResponse> {
 }
 
 fn query_other_balance(deps: Deps, address: String) -> StdResult<AllBalanceResponse> {
-    let amount = deps.querier().query_all_balances(address)?;
+    let amount = deps.querier.query_all_balances(address)?;
     Ok(AllBalanceResponse { amount })
 }
 
@@ -269,7 +269,7 @@ fn query_recurse(deps: Deps, depth: u32, work: u32, contract: Addr) -> StdResult
             contract_addr: contract.into(),
             msg: to_binary(&req)?,
         });
-        deps.querier().query(&query)
+        deps.querier.query(&query)
     }
 }
 

@@ -8,6 +8,7 @@
 //! the contract-specific function pointer. This is done via the `#[entry_point]`
 //! macro attribute from cosmwasm-derive.
 use std::fmt;
+use std::marker::PhantomData;
 use std::vec::Vec;
 
 use schemars::JsonSchema;
@@ -16,6 +17,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::deps::OwnedDeps;
 use crate::imports::{ExternalApi, ExternalQuerier, ExternalStorage};
 use crate::memory::{alloc, consume_region, release_buffer, Region};
+use crate::query::CustomQuery;
 use crate::results::{ContractResult, QueryResponse, Reply, Response};
 use crate::serde::{from_slice, to_vec};
 use crate::types::Env;
@@ -70,9 +72,10 @@ macro_rules! r#try_into_contract_result {
 ///
 /// - `M`: message type for request
 /// - `C`: custom response message type (see CosmosMsg)
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_instantiate<M, C, E>(
-    instantiate_fn: &dyn Fn(DepsMut, Env, MessageInfo, M) -> Result<Response<C>, E>,
+pub fn do_instantiate<M, C, D, E>(
+    instantiate_fn: &dyn Fn(DepsMut<D>, Env, MessageInfo, M) -> Result<Response<C>, E>,
     env_ptr: u32,
     info_ptr: u32,
     msg_ptr: u32,
@@ -80,6 +83,7 @@ pub fn do_instantiate<M, C, E>(
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_instantiate(
@@ -96,9 +100,10 @@ where
 ///
 /// - `M`: message type for request
 /// - `C`: custom response message type (see CosmosMsg)
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_execute<M, C, E>(
-    execute_fn: &dyn Fn(DepsMut, Env, MessageInfo, M) -> Result<Response<C>, E>,
+pub fn do_execute<M, C, D, E>(
+    execute_fn: &dyn Fn(DepsMut<D>, Env, MessageInfo, M) -> Result<Response<C>, E>,
     env_ptr: u32,
     info_ptr: u32,
     msg_ptr: u32,
@@ -106,6 +111,7 @@ pub fn do_execute<M, C, E>(
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_execute(
@@ -122,15 +128,17 @@ where
 ///
 /// - `M`: message type for request
 /// - `C`: custom response message type (see CosmosMsg)
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_migrate<M, C, E>(
-    migrate_fn: &dyn Fn(DepsMut, Env, M) -> Result<Response<C>, E>,
+pub fn do_migrate<M, C, D, E>(
+    migrate_fn: &dyn Fn(DepsMut<D>, Env, M) -> Result<Response<C>, E>,
     env_ptr: u32,
     msg_ptr: u32,
 ) -> u32
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_migrate(migrate_fn, env_ptr as *mut Region, msg_ptr as *mut Region);
@@ -142,15 +150,17 @@ where
 ///
 /// - `M`: message type for request
 /// - `C`: custom response message type (see CosmosMsg)
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_sudo<M, C, E>(
-    sudo_fn: &dyn Fn(DepsMut, Env, M) -> Result<Response<C>, E>,
+pub fn do_sudo<M, C, D, E>(
+    sudo_fn: &dyn Fn(DepsMut<D>, Env, M) -> Result<Response<C>, E>,
     env_ptr: u32,
     msg_ptr: u32,
 ) -> u32
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_sudo(sudo_fn, env_ptr as *mut Region, msg_ptr as *mut Region);
@@ -161,14 +171,16 @@ where
 /// do_reply should be wrapped in an external "C" export, containing a contract-specific function as arg
 /// message body is always `SubcallResult`
 /// - `C`: custom response message type (see CosmosMsg)
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_reply<C, E>(
-    reply_fn: &dyn Fn(DepsMut, Env, Reply) -> Result<Response<C>, E>,
+pub fn do_reply<C, D, E>(
+    reply_fn: &dyn Fn(DepsMut<D>, Env, Reply) -> Result<Response<C>, E>,
     env_ptr: u32,
     msg_ptr: u32,
 ) -> u32
 where
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_reply(reply_fn, env_ptr as *mut Region, msg_ptr as *mut Region);
@@ -179,14 +191,16 @@ where
 /// do_query should be wrapped in an external "C" export, containing a contract-specific function as arg
 ///
 /// - `M`: message type for request
+/// - `D`: custom query type (see QueryMsg)
 /// - `E`: error type for responses
-pub fn do_query<M, E>(
-    query_fn: &dyn Fn(Deps, Env, M) -> Result<QueryResponse, E>,
+pub fn do_query<M, D, E>(
+    query_fn: &dyn Fn(Deps<D>, Env, M) -> Result<QueryResponse, E>,
     env_ptr: u32,
     msg_ptr: u32,
 ) -> u32
 where
     M: DeserializeOwned + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let res = _do_query(query_fn, env_ptr as *mut Region, msg_ptr as *mut Region);
@@ -194,8 +208,8 @@ where
     release_buffer(v) as u32
 }
 
-fn _do_instantiate<M, C, E>(
-    instantiate_fn: &dyn Fn(DepsMut, Env, MessageInfo, M) -> Result<Response<C>, E>,
+fn _do_instantiate<M, C, D, E>(
+    instantiate_fn: &dyn Fn(DepsMut<D>, Env, MessageInfo, M) -> Result<Response<C>, E>,
     env_ptr: *mut Region,
     info_ptr: *mut Region,
     msg_ptr: *mut Region,
@@ -203,6 +217,7 @@ fn _do_instantiate<M, C, E>(
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -217,8 +232,8 @@ where
     instantiate_fn(deps.as_mut(), env, info, msg).into()
 }
 
-fn _do_execute<M, C, E>(
-    execute_fn: &dyn Fn(DepsMut, Env, MessageInfo, M) -> Result<Response<C>, E>,
+fn _do_execute<M, C, D, E>(
+    execute_fn: &dyn Fn(DepsMut<D>, Env, MessageInfo, M) -> Result<Response<C>, E>,
     env_ptr: *mut Region,
     info_ptr: *mut Region,
     msg_ptr: *mut Region,
@@ -226,6 +241,7 @@ fn _do_execute<M, C, E>(
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -240,14 +256,15 @@ where
     execute_fn(deps.as_mut(), env, info, msg).into()
 }
 
-fn _do_migrate<M, C, E>(
-    migrate_fn: &dyn Fn(DepsMut, Env, M) -> Result<Response<C>, E>,
+fn _do_migrate<M, C, D, E>(
+    migrate_fn: &dyn Fn(DepsMut<D>, Env, M) -> Result<Response<C>, E>,
     env_ptr: *mut Region,
     msg_ptr: *mut Region,
 ) -> ContractResult<Response<C>>
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -260,14 +277,15 @@ where
     migrate_fn(deps.as_mut(), env, msg).into()
 }
 
-fn _do_sudo<M, C, E>(
-    sudo_fn: &dyn Fn(DepsMut, Env, M) -> Result<Response<C>, E>,
+fn _do_sudo<M, C, D, E>(
+    sudo_fn: &dyn Fn(DepsMut<D>, Env, M) -> Result<Response<C>, E>,
     env_ptr: *mut Region,
     msg_ptr: *mut Region,
 ) -> ContractResult<Response<C>>
 where
     M: DeserializeOwned + JsonSchema,
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -280,13 +298,14 @@ where
     sudo_fn(deps.as_mut(), env, msg).into()
 }
 
-fn _do_reply<C, E>(
-    reply_fn: &dyn Fn(DepsMut, Env, Reply) -> Result<Response<C>, E>,
+fn _do_reply<C, D, E>(
+    reply_fn: &dyn Fn(DepsMut<D>, Env, Reply) -> Result<Response<C>, E>,
     env_ptr: *mut Region,
     msg_ptr: *mut Region,
 ) -> ContractResult<Response<C>>
 where
     C: Serialize + Clone + fmt::Debug + PartialEq + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -299,13 +318,14 @@ where
     reply_fn(deps.as_mut(), env, msg).into()
 }
 
-fn _do_query<M, E>(
-    query_fn: &dyn Fn(Deps, Env, M) -> Result<QueryResponse, E>,
+fn _do_query<M, D, E>(
+    query_fn: &dyn Fn(Deps<D>, Env, M) -> Result<QueryResponse, E>,
     env_ptr: *mut Region,
     msg_ptr: *mut Region,
 ) -> ContractResult<QueryResponse>
 where
     M: DeserializeOwned + JsonSchema,
+    D: CustomQuery,
     E: ToString,
 {
     let env: Vec<u8> = unsafe { consume_region(env_ptr) };
@@ -319,10 +339,14 @@ where
 }
 
 /// Makes all bridges to external dependencies (i.e. Wasm imports) that are injected by the VM
-pub(crate) fn make_dependencies() -> OwnedDeps<ExternalStorage, ExternalApi, ExternalQuerier> {
+pub(crate) fn make_dependencies<D>() -> OwnedDeps<ExternalStorage, ExternalApi, ExternalQuerier, D>
+where
+    D: CustomQuery,
+{
     OwnedDeps {
         storage: ExternalStorage::new(),
         api: ExternalApi::new(),
         querier: ExternalQuerier::new(),
+        custom_query_type: PhantomData::<D>,
     }
 }

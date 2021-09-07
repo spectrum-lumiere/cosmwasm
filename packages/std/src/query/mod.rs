@@ -66,7 +66,7 @@ pub enum QueryRequest<C: CustomQuery> {
 ///
 /// impl CustomQuery for MyCustomQuery {}
 /// ```
-pub trait CustomQuery: Serialize {}
+pub trait CustomQuery: Serialize + Clone {}
 
 impl CustomQuery for Empty {}
 
